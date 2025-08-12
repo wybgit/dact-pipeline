@@ -1,0 +1,2 @@
+name: demo-tool
+command_template: "echo 'This is a demo tool execution for {{ item }}.'"

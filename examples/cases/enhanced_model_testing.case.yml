@@ -1,0 +1,147 @@
+# Enhanced Test Case Example - AI Model Testing with Advanced Validation
+# This example demonstrates the enhanced test case system features
+
+common_params:
+  timeout: 600
+  retries: 2
+  environment: "test"
+  output_dir: "outputs"
+
+# Regular test cases with enhanced validation
+cases:
+  - name: manual_model_test
+    description: "Manual test with comprehensive validation"
+    tool: ai-json-operator
+    params:
+      ops: "Conv BatchNorm ReLU"
+      convert_to_onnx: true
+      output_dir: "{{ output_dir }}"
+    validation:
+      - type: exit_code
+        expected: 0
+        description: "Tool should execute successfully"
+      
+      - type: file_exists
+        target: "outputs/**/*.onnx"
+        description: "ONNX model file should be generated"
+      
+      - type: file_size
+        target: "outputs/**/*.onnx"
+        min_value: 1000
+        description: "ONNX file should not be empty"
+      
+      - type: file_content
+        target: "outputs/**/log.txt"
+        pattern: "Model conversion completed successfully"
+        description: "Log should contain success message"
+      
+      - type: performance
+        target: "conversion_time"
+        max_value: 30.0
+        description: "Conversion should complete within 30 seconds"
+    
+    setup:
+      create_dirs: ["outputs", "temp"]
+      environment_vars:
+        CUDA_VISIBLE_DEVICES: "0"
+    
+    teardown:
+      cleanup_dirs: ["temp"]
+      archive_results: true
+    
+    tags: ["manual", "comprehensive", "slow"]
+    timeout: 300
+
+# Data-driven test cases with enhanced features
+data_driven_cases:
+  - template:
+      name: model_accuracy_test
+      description: "Data-driven model accuracy testing"
+      scenario: onnx_to_atc_conversion
+      params:
+        model_ops: "{{ model_ops }}"
+        batch_size: "{{ batch_size_int }}"
+        target_soc: "{{ target_soc }}"
+        expected_accuracy: "{{ expected_accuracy_float }}"
+      validation:
+        - type: exit_code
+          expected: 0
+          description: "Conversion should succeed"
+        
+        - type: file_exists
+          target: "outputs/atc_outputs/*.om"
+          description: "ATC output file should exist"
+        
+        - type: performance
+          target: "accuracy"
+          min_value: "{{ expected_accuracy_float }}"
+          tolerance: 0.05
+          description: "Accuracy should meet expectations"
+        
+        - type: performance
+          target: "inference_time"
+          max_value: 100.0
+          description: "Inference time should be reasonable"
+        
+        - type: numeric_range
+          target: "memory_usage"
+          min_value: 10.0
+          max_value: 2048.0
+          description: "Memory usage should be within limits"
+        
+        - type: custom
+          custom_validator: "validate_model_output_format"
+          description: "Custom validation for model output format"
+      
+      tags: ["data-driven", "accuracy", "performance"]
+    
+    data_source: "../../tests/data/model_test_data.csv"
+    
+    # Filter to only run high-priority tests
+    data_filter:
+      target_soc: "Ascend310"
+    
+    # Transform data types
+    data_transform:
+      batch_size_int: "int(batch_size)"
+      expected_accuracy_float: "float(0.95)"  # Default expected accuracy
+    
+    # Generate meaningful test names
+    name_template: "test_{{ model_ops | replace(' ', '_') | lower }}_batch{{ batch_size }}_{{ target_soc }}"
+    
+    parameter_mapping:
+      model_ops: "model_ops"
+      batch_size: "batch_size"
+      target_soc: "target_soc"
+
+  - template:
+      name: performance_regression_test
+      description: "Performance regression testing"
+      scenario: performance_benchmark
+      params:
+        test_config: "{{ test_config }}"
+        baseline_metrics: "{{ baseline_metrics }}"
+      validation:
+        - type: performance
+          target: "{{ metric_name }}"
+          max_value: "{{ max_allowed_value }}"
+          description: "Check for performance regression"
+        
+        - type: custom
+          custom_validator: "regression_analyzer"
+          description: "Advanced regression analysis"
+      
+      tags: ["regression", "performance", "baseline"]
+    
+    data_source: "../../tests/data/performance_test_data.json"
+    
+    # Only run tests for specific configurations
+    data_filter:
+      test_name: {"$in": ["small_model_test", "medium_model_test"]}
+    
+    # Calculate regression thresholds
+    data_transform:
+      max_allowed_value: "iterations * 0.1"  # 10% regression tolerance
+      metric_name: "avg_inference_time"
+    
+    name_template: "regression_{{ test_name }}_{{ iterations }}iter"

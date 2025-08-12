@@ -1,0 +1,17 @@
+name: onnx-to-atc
+description: "一个标准的ONNX生成并转换为ATC模型的测试场景"
+
+steps:
+  - name: generate_onnx
+    tool: ai-json-operator
+    params:
+      output_dir: "onnx_models"
+
+  - name: convert_atc
+    tool: atc
+    params:
+      framework: 5
+      model: "{{ steps.generate_onnx.outputs.onnx_file }}"
+      input_format: "NCHW"
+      output: "atc_models/model"
+      soc_version: "Ascend310" # 场景可以提供一个默认的soc

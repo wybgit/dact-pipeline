@@ -1,0 +1,2 @@
+name: read-file
+command_template: "cat {{ input_file }}"

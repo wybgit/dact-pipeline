@@ -1,0 +1,12 @@
+# examples/cases/conv_add.case.yml
+cases:
+  - name: test_conv_add_conversion
+    description: "测试 Conv Add 算子从 ONNX 到 ATC 的转换流程"
+    scenario: onnx-to-atc
+    params:
+      # Override parameters for the 'generate_onnx' step
+      generate_onnx:
+        ops: "Conv Add"
+      # Override parameters for the 'convert_atc' step
+      convert_atc:
+        soc_version: "Ascend310P3" # Override the default soc_version from the scenario

@@ -1,0 +1,68 @@
+# Example test case file demonstrating enhanced validation features
+common_params:
+  timeout: 300
+  retries: 1
+
+cases:
+  - name: test_with_multiple_validations
+    description: "Test case demonstrating multiple validation types"
+    tool: demo-tool
+    params:
+      item: "validation test"
+    validation:
+      - type: exit_code
+        expected: 0
+        description: "Tool should execute successfully"
+      
+      - type: stdout_contains
+        expected: "validation test"
+        description: "Output should contain the input parameter"
+      
+      - type: stderr_not_contains
+        expected: "ERROR"
+        description: "No errors should be reported"
+      
+      - type: file_exists
+        target: "demo-tool.log"
+        description: "Log file should be created"
+    
+    tags: ["validation", "demo"]
+    timeout: 60
+
+  - name: test_with_file_validations
+    description: "Test case focusing on file-based validations"
+    tool: demo-tool
+    params:
+      item: "file test"
+      create_output: true
+    validation:
+      - type: file_exists
+        target: "output.txt"
+        description: "Output file should exist"
+      
+      - type: file_size
+        target: "output.txt"
+        expected: 100
+        tolerance: 50
+        description: "Output file should be approximately 100 bytes"
+    
+    tags: ["file", "validation"]
+
+  - name: test_with_output_validations
+    description: "Test case with output variable validations"
+    scenario: demo-scenario
+    params:
+      step_one:
+        item: "output test"
+    validation:
+      - type: output_equals
+        target: "step_one.result"
+        expected: "processed: output test"
+        description: "Step output should match expected format"
+      
+      - type: output_matches
+        target: "step_one.timestamp"
+        pattern: '\d{4}-\d{2}-\d{2} \d{2}:\d{2}:\d{2}'
+        description: "Timestamp should be in correct format"
+    
+    tags: ["output", "scenario"]

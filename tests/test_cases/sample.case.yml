@@ -1,0 +1,13 @@
+cases:
+  - name: my_first_dact_case
+    scenario: demo-scenario
+    params:
+      step_one:
+        item: "step 1"
+      step_two:
+        item: "step 2"
+
+  - name: my_second_dact_case
+    tool: demo-tool
+    params:
+      item: "a direct tool call"

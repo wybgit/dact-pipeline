@@ -1,0 +1,50 @@
+# Python
+__pycache__/
+*.py[cod]
+*$py.class
+
+# Build artifacts
+build/
+dist/
+*.egg-info/
+*.egg
+
+# Virtualenv
+.env
+.venv
+env/
+venv/
+
+# IDE / Editor
+.vscode/
+.krio/
+.idea/
+*.swp
+*.swo
+
+# Test artifacts
+.pytest_cache/
+.coverage
+htmlcov/
+report.html
+test_report.html
+
+# DACT specific
+tmp/
+outputs/
+*.log
+*.om
+*.onnx
+
+# Documentation
+docs/_build/
+docs/build/
+
+# OS specific
+.DS_Store
+Thumbs.db
+
+# Temporary files
+*.tmp
+*.temp
+*~

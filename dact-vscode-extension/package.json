@@ -1,0 +1,106 @@
+{
+  "name": "dact-vscode",
+  "displayName": "DACT Support",
+  "description": "Syntax highlighting and snippets for DACT pipeline files",
+  "version": "0.0.1",
+  "engines": {
+    "vscode": "^1.80.0"
+  },
+  "categories": [
+    "Programming Languages",
+    "Snippets"
+  ],
+  "activationEvents": [
+    "onLanguage:dact-tool",
+    "onLanguage:dact-scenario",
+    "onLanguage:dact-case"
+  ],
+  "main": "./out/extension.js",
+  "contributes": {
+    "languages": [
+      {
+        "id": "dact-tool",
+        "aliases": ["DACT Tool", "dact-tool"],
+        "extensions": [".tool.yml"],
+        "configuration": "./language-configuration.json"
+      },
+      {
+        "id": "dact-scenario",
+        "aliases": ["DACT Scenario", "dact-scenario"],
+        "extensions": [".scenario.yml"],
+        "configuration": "./language-configuration.json"
+      },
+      {
+        "id": "dact-case",
+        "aliases": ["DACT Case", "dact-case"],
+        "extensions": [".case.yml"],
+        "configuration": "./language-configuration.json"
+      }
+    ],
+    "grammars": [
+      {
+        "language": "dact-tool",
+        "scopeName": "source.yaml.dact-tool",
+        "path": "./syntaxes/dact.tmLanguage.json"
+      },
+      {
+        "language": "dact-scenario",
+        "scopeName": "source.yaml.dact-scenario",
+        "path": "./syntaxes/dact.tmLanguage.json"
+      },
+      {
+        "language": "dact-case",
+        "scopeName": "source.yaml.dact-case",
+        "path": "./syntaxes/dact.tmLanguage.json"
+      }
+    ],
+    "commands": [
+      {
+        "command": "dact-vscode.runFile",
+        "title": "DACT: Run this test file"
+      },
+      {
+        "command": "dact-vscode.validateFile",
+        "title": "DACT: Validate this file"
+      }
+    ],
+    "menus": {
+      "editor/context": [
+        {
+          "when": "resourceExtname == .yml && (resourceFilename =~ /\\.tool\\.yml$/ || resourceFilename =~ /\\.scenario\\.yml$/ || resourceFilename =~ /\\.case\\.yml$/)",
+          "command": "dact-vscode.runFile",
+          "group": "dact@1"
+        },
+        {
+          "when": "resourceExtname == .yml && (resourceFilename =~ /\\.tool\\.yml$/ || resourceFilename =~ /\\.scenario\\.yml$/ || resourceFilename =~ /\\.case\\.yml$/)",
+          "command": "dact-vscode.validateFile",
+          "group": "dact@2"
+        }
+      ]
+    },
+    "snippets": [
+      {
+        "language": "dact-tool",
+        "path": "./snippets.json"
+      },
+      {
+        "language": "dact-scenario",
+        "path": "./snippets.json"
+      },
+      {
+        "language": "dact-case",
+        "path": "./snippets.json"
+      }
+    ]
+  },
+  "scripts": {
+    "vscode:prepublish": "npm run compile",
+    "compile": "tsc -p ./",
+    "watch": "tsc -watch -p ./"
+  },
+  "devDependencies": {
+    "@types/vscode": "^1.80.0",
+    "@types/node": "^20.0.0",
+    "typescript": "^5.0.0"
+  }
+}

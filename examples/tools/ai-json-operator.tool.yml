@@ -1,0 +1,30 @@
+name: ai-json-operator
+type: shell
+description: "AI算子JSON定义转ONNX模型工具"
+
+parameters:
+  ops:
+    type: str
+    required: true
+    help: "要转换的算子名称, e.g. 'Conv Add'"
+  convert_to_onnx:
+    type: bool
+    default: true
+  max_retries:
+    type: int
+    default: 3
+  output_dir:
+    type: str
+    required: true
+    help: "输出目录"
+
+command_template: >
+  ai-json-operator "{{ ops }}"
+  {% if convert_to_onnx %}--convert-to-onnx{% endif %}
+  --max-retries {{ max_retries }}
+  -o {{ output_dir }}
+
+post_exec:
+  outputs:
+    # This assumes the tool creates a single onnx file in a subdirectory
+    onnx_file: "find_file(dir='{{ output_dir }}', pattern='**/*.onnx')"

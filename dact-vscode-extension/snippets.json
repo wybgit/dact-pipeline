@@ -1,0 +1,267 @@
+{
+    "Tool Definition": {
+        "prefix": "dact-tool",
+        "body": [
+            "name: ${1:my-tool}",
+            "description: ${2:Tool description}",
+            "type: ${3|shell,python,binary|}",
+            "command_template: ${4:echo 'hello'}",
+            "parameters:",
+            "  ${5:param1}:",
+            "    type: ${6|str,int,float,bool,list,dict|}",
+            "    required: ${7|true,false|}",
+            "    default: \"${8:value}\"",
+            "    help: \"${9:Parameter description}\"",
+            "post_exec:",
+            "  outputs:",
+            "    ${10:output1}: \"find_file(dir='.', pattern='*.txt')\""
+        ],
+        "description": "A new DACT tool definition"
+    },
+    "Advanced Tool Definition": {
+        "prefix": "dact-tool-advanced",
+        "body": [
+            "name: ${1:advanced-tool}",
+            "description: ${2:Advanced tool with validation}",
+            "type: ${3|shell,python,binary|}",
+            "command_template: ${4:command}",
+            "timeout: ${5:300}",
+            "retry_count: ${6:0}",
+            "success_pattern: \"${7:SUCCESS}\"",
+            "failure_pattern: \"${8:ERROR}\"",
+            "parameters:",
+            "  ${9:input_file}:",
+            "    type: str",
+            "    required: true",
+            "    help: \"Input file path\"",
+            "  ${10:output_dir}:",
+            "    type: str",
+            "    required: false",
+            "    default: \"outputs\"",
+            "    help: \"Output directory\"",
+            "post_exec:",
+            "  outputs:",
+            "    ${11:result_file}: \"find_latest_file(dir='{{ output_dir }}', pattern='*.result')\"",
+            "validation:",
+            "  exit_code: 0",
+            "  output_files_exist:",
+            "    - \"{{ output_dir }}/*.result\""
+        ],
+        "description": "An advanced DACT tool definition with validation"
+    },
+    "Python Tool Definition": {
+        "prefix": "dact-python-tool",
+        "body": [
+            "name: ${1:python-tool}",
+            "description: ${2:Python script tool}",
+            "type: python",
+            "python_module: \"${3:my_module.my_script}\"",
+            "command_template: \"python -m ${3:my_module.my_script} --input {{ input_file }}\"",
+            "parameters:",
+            "  input_file:",
+            "    type: str",
+            "    required: true",
+            "    help: \"Input file for processing\"",
+            "post_exec:",
+            "  outputs:",
+            "    ${4:output}: \"find_file(dir='.', pattern='*.out')\""
+        ],
+        "description": "A Python-based DACT tool definition"
+    },
+    "Scenario Definition": {
+        "prefix": "dact-scenario",
+        "body": [
+            "name: ${1:my-scenario}",
+            "description: ${2:Scenario description}",
+            "default_params:",
+            "  ${3:common_param}: \"${4:default_value}\"",
+            "steps:",
+            "  - name: ${5:step1}",
+            "    tool: ${6:my-tool}",
+            "    params:",
+            "      param1: \"{{ ${3:common_param} }}\"",
+            "  - name: ${7:step2}",
+            "    tool: ${8:another-tool}",
+            "    depends_on: [\"${5:step1}\"]",
+            "    params:",
+            "      input: \"{{ steps.${5:step1}.outputs.output1 }}\""
+        ],
+        "description": "A new DACT scenario definition"
+    },
+    "Advanced Scenario Definition": {
+        "prefix": "dact-scenario-advanced",
+        "body": [
+            "name: ${1:advanced-scenario}",
+            "description: ${2:Advanced scenario with dependencies and cleanup}",
+            "version: \"${3:1.0}\"",
+            "default_params:",
+            "  ${4:input_dir}: \"inputs\"",
+            "  ${5:output_dir}: \"outputs\"",
+            "environment:",
+            "  ${6:ENV_VAR}: \"${7:value}\"",
+            "steps:",
+            "  - name: ${8:setup}",
+            "    tool: ${9:setup-tool}",
+            "    params:",
+            "      output_dir: \"{{ ${5:output_dir} }}\"",
+            "  - name: ${10:process}",
+            "    tool: ${11:process-tool}",
+            "    depends_on: [\"${8:setup}\"]",
+            "    condition: \"{{ steps.${8:setup}.outputs.ready == 'true' }}\"",
+            "    params:",
+            "      input: \"{{ ${4:input_dir} }}\"",
+            "      output: \"{{ steps.${8:setup}.outputs.work_dir }}\"",
+            "  - name: ${12:validate}",
+            "    tool: ${13:validate-tool}",
+            "    depends_on: [\"${10:process}\"]",
+            "    continue_on_failure: true",
+            "    params:",
+            "      result: \"{{ steps.${10:process}.outputs.result }}\"",
+            "cleanup_steps:",
+            "  - name: ${14:cleanup}",
+            "    tool: ${15:cleanup-tool}",
+            "    params:",
+            "      dir: \"{{ ${5:output_dir} }}\""
+        ],
+        "description": "An advanced DACT scenario with dependencies and cleanup"
+    },
+    "Case Definition": {
+        "prefix": "dact-case",
+        "body": [
+            "cases:",
+            "  - name: ${1:my-test-case}",
+            "    description: \"${2:Test case description}\"",
+            "    scenario: ${3:my-scenario}",
+            "    params:",
+            "      ${4:step1}:",
+            "        param1: \"${5:override_value}\""
+        ],
+        "description": "A new DACT case definition"
+    },
+    "Advanced Case Definition": {
+        "prefix": "dact-case-advanced",
+        "body": [
+            "common_params:",
+            "  ${1:global_param}: \"${2:global_value}\"",
+            "",
+            "cases:",
+            "  - name: ${3:test-case-1}",
+            "    description: \"${4:First test case}\"",
+            "    tags: [\"${5:smoke}\", \"${6:regression}\"]",
+            "    scenario: ${7:my-scenario}",
+            "    timeout: ${8:600}",
+            "    params:",
+            "      ${9:step1}:",
+            "        param1: \"{{ ${1:global_param} }}\"",
+            "    validation:",
+            "      - type: ${10|output,file,performance,custom|}",
+            "        target: \"${11:output_file}\"",
+            "        expected: \"${12:expected_value}\"",
+            "    setup:",
+            "      create_dirs: [\"inputs\", \"outputs\"]",
+            "    teardown:",
+            "      cleanup_dirs: [\"temp\"]",
+            "",
+            "  - name: ${13:test-case-2}",
+            "    description: \"${14:Second test case}\"",
+            "    scenario: ${7:my-scenario}",
+            "    params:",
+            "      ${9:step1}:",
+            "        param1: \"${15:different_value}\""
+        ],
+        "description": "An advanced DACT case definition with validation and setup/teardown"
+    },
+    "Data-Driven Case Definition": {
+        "prefix": "dact-case-data-driven",
+        "body": [
+            "data_source: \"${1:test_data.csv}\"",
+            "parameter_mapping:",
+            "  ${2:input_file}: \"${3:input_column}\"",
+            "  ${4:expected_output}: \"${5:output_column}\"",
+            "",
+            "cases:",
+            "  - name: ${6:data-driven-test}",
+            "    description: \"${7:Data-driven test case}\"",
+            "    scenario: ${8:my-scenario}",
+            "    params:",
+            "      ${9:step1}:",
+            "        input: \"{{ data.${2:input_file} }}\"",
+            "    validation:",
+            "      - type: output",
+            "        target: \"result\"",
+            "        expected: \"{{ data.${4:expected_output} }}\""
+        ],
+        "description": "A data-driven DACT case definition"
+    },
+    "Tool Parameter": {
+        "prefix": "dact-param",
+        "body": [
+            "${1:param_name}:",
+            "  type: ${2|str,int,float,bool,list,dict|}",
+            "  required: ${3|true,false|}",
+            "  default: ${4:null}",
+            "  help: \"${5:Parameter description}\""
+        ],
+        "description": "A DACT tool parameter definition"
+    },
+    "Scenario Step": {
+        "prefix": "dact-step",
+        "body": [
+            "- name: ${1:step_name}",
+            "  tool: ${2:tool_name}",
+            "  description: \"${3:Step description}\"",
+            "  params:",
+            "    ${4:param1}: \"${5:value}\"",
+            "  depends_on: [\"${6:previous_step}\"]"
+        ],
+        "description": "A DACT scenario step definition"
+    },
+    "Conditional Step": {
+        "prefix": "dact-step-conditional",
+        "body": [
+            "- name: ${1:conditional_step}",
+            "  tool: ${2:tool_name}",
+            "  condition: \"{{ ${3:condition} }}\"",
+            "  continue_on_failure: ${4|true,false|}",
+            "  retry_on_failure: ${5|true,false|}",
+            "  timeout: ${6:300}",
+            "  params:",
+            "    ${7:param1}: \"${8:value}\""
+        ],
+        "description": "A conditional DACT scenario step"
+    },
+    "Post Exec Output": {
+        "prefix": "dact-output",
+        "body": [
+            "post_exec:",
+            "  outputs:",
+            "    ${1:output_name}: \"${2|find_file,find_latest_file,find_onnx_file,find_onnx_dir|}(dir='${3:.}', pattern='${4:*.txt}')\""
+        ],
+        "description": "A DACT post-execution output definition"
+    },
+    "Jinja Template Reference": {
+        "prefix": "jinja-steps",
+        "body": [
+            "{{ steps.${1:step_name}.outputs.${2:output_name} }}"
+        ],
+        "description": "Reference to a step output in Jinja template"
+    },
+    "Jinja Case Reference": {
+        "prefix": "jinja-case",
+        "body": [
+            "{{ case.${1:param_name} }}"
+        ],
+        "description": "Reference to a case parameter in Jinja template"
+    },
+    "Validation Rule": {
+        "prefix": "dact-validation",
+        "body": [
+            "validation:",
+            "  - type: ${1|output,file,performance,custom|}",
+            "    target: \"${2:target}\"",
+            "    expected: ${3:expected_value}",
+            "    tolerance: ${4:0.1}"
+        ],
+        "description": "A DACT validation rule"
+    }
+}

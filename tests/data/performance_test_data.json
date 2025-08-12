@@ -1,0 +1,17 @@
+[
+  {
+    "test_name": "small_model_test",
+    "input_size": 224,
+    "iterations": 100
+  },
+  {
+    "test_name": "medium_model_test", 
+    "input_size": 512,
+    "iterations": 50
+  },
+  {
+    "test_name": "large_model_test",
+    "input_size": 1024,
+    "iterations": 10
+  }
+]

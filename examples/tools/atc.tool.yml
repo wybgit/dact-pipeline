@@ -1,0 +1,34 @@
+name: atc
+type: shell
+description: "Ascend ATC 模型转换工具"
+
+parameters:
+  framework:
+    type: int
+    required: true
+    help: "原始框架类型, 5=ONNX"
+  model:
+    type: str
+    required: true
+    help: "原始模型文件路径"
+  input_format:
+    type: str
+    required: true
+  output:
+    type: str
+    required: true
+    help: "输出模型路径(不含后缀)"
+  log:
+    type: str
+    default: "debug"
+  soc_version:
+    type: str
+    required: true
+
+command_template: >
+  atc --framework={{ framework }}
+  --model={{ model }}
+  --input_format={{ input_format }}
+  --output={{ output }}
+  --log={{ log }}
+  --soc_version={{ soc_version }}

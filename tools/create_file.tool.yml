@@ -1,0 +1,5 @@
+name: create-file
+command_template: "echo 'Content for {{ filename }}' > {{ filename }}"
+post_exec:
+  outputs:
+    output_file: "find_file(dir='.', pattern='{{ filename }}')"

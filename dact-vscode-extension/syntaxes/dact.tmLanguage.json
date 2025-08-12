@@ -1,0 +1,86 @@
+{
+    "$schema": "https://raw.githubusercontent.com/martinring/tmlanguage/master/tmlanguage.json",
+    "name": "DACT YAML",
+    "scopeName": "source.yaml.dact",
+    "patterns": [
+        {
+            "include": "source.yaml"
+        },
+        {
+            "include": "#dact-keywords"
+        },
+        {
+            "include": "#dact-strings"
+        },
+        {
+            "include": "#dact-jinja-templates"
+        }
+    ],
+    "repository": {
+        "dact-keywords": {
+            "patterns": [
+                {
+                    "name": "entity.name.tag.yaml.dact",
+                    "match": "\\b(name|tool|scenario|steps|cases|params|post_exec|outputs|command_template|parameters|description|type|required|default|help|success_pattern|failure_pattern|validation|timeout|retry_count|depends_on|condition|continue_on_failure|cleanup_steps|environment|tags|data_source|setup|teardown)\\b(?=:)"
+                },
+                {
+                    "name": "support.type.property-name.yaml.dact",
+                    "match": "\\b(shell|python|binary|str|int|float|bool|list|dict)\\b"
+                }
+            ]
+        },
+        "dact-strings": {
+            "patterns": [
+                {
+                    "name": "string.quoted.double.yaml.dact",
+                    "begin": "\"",
+                    "end": "\"",
+                    "patterns": [
+                        {
+                            "include": "#dact-jinja-templates"
+                        }
+                    ]
+                },
+                {
+                    "name": "string.quoted.single.yaml.dact",
+                    "begin": "'",
+                    "end": "'",
+                    "patterns": [
+                        {
+                            "include": "#dact-jinja-templates"
+                        }
+                    ]
+                }
+            ]
+        },
+        "dact-jinja-templates": {
+            "patterns": [
+                {
+                    "name": "meta.embedded.block.jinja.dact",
+                    "begin": "\\{\\{",
+                    "end": "\\}\\}",
+                    "beginCaptures": {
+                        "0": {
+                            "name": "punctuation.definition.template.begin.jinja.dact"
+                        }
+                    },
+                    "endCaptures": {
+                        "0": {
+                            "name": "punctuation.definition.template.end.jinja.dact"
+                        }
+                    },
+                    "patterns": [
+                        {
+                            "name": "variable.other.jinja.dact",
+                            "match": "\\b(steps|case|outputs)\\b"
+                        },
+                        {
+                            "name": "support.function.jinja.dact",
+                            "match": "\\b(find_file|find_latest_file|find_onnx_file|find_onnx_dir)\\b"
+                        }
+                    ]
+                }
+            ]
+        }
+    }
+}

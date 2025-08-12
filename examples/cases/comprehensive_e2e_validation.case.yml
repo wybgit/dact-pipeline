@@ -1,0 +1,250 @@
+# Comprehensive End-to-End Validation Test Cases
+# 全面的端到端验证测试用例
+# 
+# This file contains test cases that validate all the functionality
+# mentioned in the requirements document for end-to-end testing
+
+common_params:
+  timeout: 900  # Extended timeout for comprehensive tests
+  output_base_dir: "outputs/comprehensive"
+
+cases:
+  # Test Case 1: Complete Pipeline Validation
+  - name: complete_pipeline_validation
+    description: "验证完整的ONNX到ATC转换管道，包括所有步骤和验证"
+    scenario: e2e-onnx-to-atc
+    params:
+      ops: "Conv Add"
+      output_dir: "{{ output_base_dir }}/pipeline_test"
+      atc_output_dir: "{{ output_base_dir }}/pipeline_test/atc_outputs"
+      max_retries: 3
+      soc_version: "Ascend310"
+      log_level: "debug"
+    
+    validation:
+      # Step 1 validation: ai-json-operator execution
+      - type: exit_code
+        expected: 0
+        description: "ai-json-operator工具应该成功执行"
+      
+      - type: file_exists
+        target: "{{ output_base_dir }}/pipeline_test/**/*.onnx"
+        description: "应该生成ONNX模型文件"
+      
+      - type: file_size
+        target: "{{ output_base_dir }}/pipeline_test/**/*.onnx"
+        min_value: 1000
+        description: "ONNX文件应该有合理的大小"
+      
+      # Step 2 validation: atc tool execution
+      - type: file_exists
+        target: "{{ output_base_dir }}/pipeline_test/atc_outputs/*.om"
+        description: "应该生成ATC输出文件(.om)"
+      
+      - type: file_size
+        target: "{{ output_base_dir }}/pipeline_test/atc_outputs/*.om"
+        min_value: 1000
+        description: "ATC输出文件应该有合理的大小"
+      
+      # Step 3 validation: file validator execution
+      - type: file_content
+        target: "{{ output_base_dir }}/pipeline_test/validate_output/stdout.log"
+        pattern: "{{ output_base_dir }}/pipeline_test/atc_outputs"
+        description: "文件验证器应该找到ATC输出目录"
+    
+    setup:
+      create_dirs: 
+        - "{{ output_base_dir }}/pipeline_test"
+        - "{{ output_base_dir }}/pipeline_test/atc_outputs"
+    
+    teardown:
+      archive_results: true
+      cleanup_dirs: ["{{ output_base_dir }}/pipeline_test"]
+    
+    tags: ["comprehensive", "pipeline", "validation", "critical"]
+
+  # Test Case 2: Dynamic File Name Support
+  - name: dynamic_filename_support_validation
+    description: "验证动态文件名支持，测试find_onnx_file和find_onnx_dir函数"
+    scenario: e2e-onnx-to-atc
+    params:
+      ops: "Conv BatchNorm ReLU"  # More complex to generate unique folder names
+      output_dir: "{{ output_base_dir }}/dynamic_test"
+      atc_output_dir: "{{ output_base_dir }}/dynamic_test/atc_outputs"
+    
+    validation:
+      - type: exit_code
+        expected: 0
+        description: "动态文件名查找应该正常工作"
+      
+      - type: file_exists
+        target: "{{ output_base_dir }}/dynamic_test/**/resources/*.onnx"
+        description: "应该在动态生成的目录结构中找到ONNX文件"
+      
+      - type: file_exists
+        target: "{{ output_base_dir }}/dynamic_test/atc_outputs/*.om"
+        description: "ATC转换应该使用动态找到的ONNX文件"
+      
+      # Validate that the dynamic file path was correctly passed
+      - type: file_content
+        target: "{{ output_base_dir }}/dynamic_test/convert_atc/stdout.log"
+        pattern: "resources.*\\.onnx"
+        description: "ATC命令应该包含动态找到的ONNX文件路径"
+    
+    tags: ["dynamic", "filename", "post_exec", "critical"]
+
+  # Test Case 3: Parameter Passing and Template Rendering
+  - name: parameter_passing_validation
+    description: "验证参数传递和Jinja2模板渲染功能"
+    scenario: e2e-onnx-to-atc
+    params:
+      ops: "Add Mul"
+      output_dir: "{{ output_base_dir }}/param_test"
+      atc_output_dir: "{{ output_base_dir }}/param_test/atc_outputs"
+      soc_version: "Ascend310P3"  # Different from default
+      log_level: "info"  # Different from default
+      max_retries: 5  # Different from default
+    
+    validation:
+      # Verify parameter override worked
+      - type: file_content
+        target: "{{ output_base_dir }}/param_test/generate_onnx/stdout.log"
+        pattern: "Add Mul"
+        description: "ops参数应该正确传递"
+      
+      - type: file_content
+        target: "{{ output_base_dir }}/param_test/generate_onnx/stdout.log"
+        pattern: "max-retries 5"
+        description: "max_retries参数应该被覆盖"
+      
+      - type: file_content
+        target: "{{ output_base_dir }}/param_test/convert_atc/stdout.log"
+        pattern: "soc_version=Ascend310P3"
+        description: "soc_version参数应该被覆盖"
+      
+      - type: file_content
+        target: "{{ output_base_dir }}/param_test/convert_atc/stdout.log"
+        pattern: "log=info"
+        description: "log_level参数应该被覆盖"
+    
+    tags: ["parameters", "jinja2", "template", "override"]
+
+  # Test Case 4: Error Handling and Recovery
+  - name: error_handling_validation
+    description: "验证错误处理和恢复机制"
+    tool: ai-json-operator  # Direct tool call to test error handling
+    params:
+      ops: "NonExistentOperator"  # Invalid operator to trigger error
+      convert_to_onnx: true
+      max_retries: 1
+      output_dir: "{{ output_base_dir }}/error_test"
+    
+    validation:
+      - type: exit_code
+        expected: 1  # Expect failure
+        description: "无效算子应该导致工具执行失败"
+      
+      - type: file_content
+        target: "stderr.log"
+        pattern: "error|Error|ERROR"
+        description: "错误信息应该被记录到stderr"
+    
+    tags: ["error", "handling", "recovery", "negative"]
+
+  # Test Case 5: File Validation Tool Testing
+  - name: file_validator_comprehensive_test
+    description: "全面测试文件验证工具的功能"
+    tool: file-validator
+    params:
+      check_path: "examples"  # Use existing directory
+      expected_files: ["*.yml"]
+      min_size: 100
+      recursive: true
+    
+    validation:
+      - type: exit_code
+        expected: 0
+        description: "文件验证器应该成功找到YAML文件"
+      
+      - type: file_content
+        target: "stdout.log"
+        pattern: "examples.*\\.yml"
+        description: "应该找到examples目录中的YAML文件"
+    
+    tags: ["file-validator", "tool", "validation"]
+
+  # Test Case 6: Performance and Timeout Testing
+  - name: performance_timeout_validation
+    description: "验证性能和超时处理"
+    scenario: e2e-onnx-to-atc
+    params:
+      ops: "Conv BatchNorm ReLU Add Mul"  # Complex operations
+      output_dir: "{{ output_base_dir }}/perf_test"
+      atc_output_dir: "{{ output_base_dir }}/perf_test/atc_outputs"
+    
+    validation:
+      - type: exit_code
+        expected: 0
+        description: "复杂操作应该在超时时间内完成"
+      
+      - type: performance
+        target: "total_execution_time"
+        max_value: 600.0  # 10 minutes max
+        description: "总执行时间应该在合理范围内"
+    
+    timeout: 600  # 10 minutes timeout
+    tags: ["performance", "timeout", "complex"]
+
+# Data-driven comprehensive testing
+data_driven_cases:
+  - template:
+      name: operator_compatibility_matrix
+      description: "算子兼容性矩阵测试"
+      scenario: e2e-onnx-to-atc
+      params:
+        ops: "{{ ops }}"
+        soc_version: "{{ soc_version }}"
+        output_dir: "{{ output_base_dir }}/matrix_{{ test_id }}"
+        atc_output_dir: "{{ output_base_dir }}/matrix_{{ test_id }}/atc_outputs"
+      
+      validation:
+        - type: exit_code
+          expected: "{{ expected_result }}"
+          description: "{{ ops }}在{{ soc_version }}上的兼容性测试"
+        
+        - type: file_exists
+          target: "{{ output_base_dir }}/matrix_{{ test_id }}/atc_outputs/*.om"
+          description: "成功的测试应该生成ATC文件"
+          condition: "{{ expected_result == 0 }}"
+      
+      tags: ["matrix", "compatibility", "comprehensive"]
+    
+    data_source: "inline"  # Use inline data
+    # Comprehensive test matrix
+    data:
+      - test_id: "conv_310"
+        ops: "Conv"
+        soc_version: "Ascend310"
+        expected_result: 0
+      
+      - test_id: "conv_add_310"
+        ops: "Conv Add"
+        soc_version: "Ascend310"
+        expected_result: 0
+      
+      - test_id: "conv_bn_relu_310p3"
+        ops: "Conv BatchNorm ReLU"
+        soc_version: "Ascend310P3"
+        expected_result: 0
+      
+      - test_id: "complex_ops_310"
+        ops: "Conv BatchNorm ReLU Add Mul"
+        soc_version: "Ascend310"
+        expected_result: 0
+      
+      - test_id: "invalid_ops"
+        ops: "InvalidOperator"
+        soc_version: "Ascend310"
+        expected_result: 1  # Expected to fail
+    
+    name_template: "compatibility_{{ test_id }}"

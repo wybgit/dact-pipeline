@@ -1,0 +1,58 @@
+# Example data-driven test case file
+common_params:
+  timeout: 300
+  output_dir: "tmp/data_driven_tests"
+
+# Regular test cases
+cases:
+  - name: regular_test
+    description: "A regular test case for comparison"
+    tool: demo-tool
+    params:
+      item: "regular test"
+
+# Data-driven test cases
+data_driven_cases:
+  - template:
+      name: model_conversion_test
+      description: "Test model conversion with different parameters"
+      scenario: e2e-onnx-to-atc
+      params:
+        # These will be overridden by data
+        generate_onnx:
+          ops: "{{ data.model_ops }}"
+          batch_size: "{{ data.batch_size }}"
+        convert_atc:
+          soc_version: "{{ data.target_soc }}"
+      validation:
+        - type: exit_code
+          expected: 0
+          description: "Conversion should succeed"
+        - type: file_exists
+          target: "outputs/atc_outputs/*.om"
+          description: "OM file should be generated"
+      tags: ["data-driven", "conversion"]
+    
+    data_source: "tests/data/model_test_data.csv"
+    parameter_mapping:
+      "generate_onnx.ops": "model_ops"
+      "generate_onnx.batch_size": "batch_size"
+      "convert_atc.soc_version": "target_soc"
+
+  - template:
+      name: performance_test
+      description: "Performance test with different configurations"
+      tool: demo-tool
+      params:
+        item: "{{ data.test_name }}"
+        size: "{{ data.input_size }}"
+        iterations: "{{ data.iterations }}"
+      validation:
+        - type: exit_code
+          expected: 0
+        - type: stdout_contains
+          expected: "completed"
+      tags: ["performance", "data-driven"]
+    
+    data_source: "tests/data/performance_test_data.json"
+    # No parameter_mapping means direct mapping from data keys to params

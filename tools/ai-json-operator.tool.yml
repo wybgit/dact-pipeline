@@ -1,0 +1,30 @@
+name: ai-json-operator
+type: shell
+description: AI JSON operator tool for generating ONNX models
+parameters:
+  ops:
+    type: str
+    required: true
+    help: "Operations to include in the model (e.g., 'Conv Add')"
+  convert_to_onnx:
+    type: bool
+    default: false
+    help: "Whether to convert to ONNX format"
+  max_retries:
+    type: int
+    default: 3
+    help: "Maximum number of retries"
+  output_dir:
+    type: str
+    default: "outputs"
+    help: "Output directory for generated files"
+command_template: 'python /home/wyb/AI_tools/dact-pipeline-gemini/test_tools/mock_ai_json_operator.py "{{ ops }}" {% if convert_to_onnx %}--convert-to-onnx{% endif %} --max-retries {{ max_retries }} -o {{ output_dir }}'
+success_pattern: "successfully generated"
+validation:
+  exit_code: 0
+  stdout_contains: ["generated"]
+  output_files_exist: ["{{ output_dir }}/**/*.onnx"]
+post_exec:
+  outputs:
+    onnx_file: "find_onnx_file(dir='{{ output_dir }}')"
+    onnx_dir: "find_onnx_dir(dir='{{ output_dir }}')"

@@ -1,0 +1,10 @@
+name: dependency-test
+steps:
+  - name: create_the_file
+    tool: create-file
+    params:
+      filename: "my_test_file.txt"
+  - name: read_the_file
+    tool: read-file
+    params:
+      input_file: "{{ steps.create_the_file.outputs.output_file }}"

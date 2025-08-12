@@ -1,0 +1,5 @@
+model_ops,batch_size,target_soc
+"Conv Add",1,Ascend310
+"Conv BatchNorm ReLU",4,Ascend310P3
+"ResNet Block",1,Ascend910
+"Transformer Layer",2,Ascend310P3

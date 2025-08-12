@@ -1,0 +1,6 @@
+name: demo-scenario
+steps:
+  - name: step_one
+    tool: demo-tool
+  - name: step_two
+    tool: demo-tool

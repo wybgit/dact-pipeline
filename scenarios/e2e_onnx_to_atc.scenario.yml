@@ -1,0 +1,40 @@
+name: e2e-onnx-to-atc
+description: "端到端ONNX生成和ATC转换测试场景"
+version: "1.0"
+default_params:
+  output_dir: "outputs"
+  atc_output_dir: "outputs/atc_outputs"
+  max_retries: 3
+  soc_version: "Ascend310"
+  log_level: "debug"
+
+steps:
+  - name: generate_onnx
+    tool: ai-json-operator
+    description: "生成ONNX模型文件"
+    params:
+      ops: "{{ ops }}"
+      convert_to_onnx: true
+      max_retries: "{{ max_retries }}"
+      output_dir: "{{ output_dir }}"
+
+  - name: convert_atc
+    tool: atc
+    description: "将ONNX模型转换为ATC格式"
+    depends_on: ["generate_onnx"]
+    params:
+      framework: 5
+      model: "{{ steps.generate_onnx.outputs.onnx_file }}"
+      input_format: "NCHW"
+      output: "{{ atc_output_dir }}"
+      log: "{{ log_level }}"
+      soc_version: "{{ soc_version }}"
+
+  - name: validate_output
+    tool: file-validator
+    description: "验证ATC转换输出文件"
+    depends_on: ["convert_atc"]
+    params:
+      check_path: "../convert_atc/{{ atc_output_dir }}"
+      expected_files: ["*.om"]
+      min_size: 1000

@@ -1,0 +1,36 @@
+name: atc
+type: shell
+description: ATC (Ascend Tensor Compiler) tool for converting models
+parameters:
+  framework:
+    type: int
+    required: true
+    help: "Framework type (5 for ONNX)"
+  model:
+    type: str
+    required: true
+    help: "Path to the input model file"
+  input_format:
+    type: str
+    default: "NCHW"
+    help: "Input format specification"
+  output:
+    type: str
+    required: true
+    help: "Output directory for compiled model"
+  log:
+    type: str
+    default: "info"
+    help: "Log level (debug, info, warning, error)"
+  soc_version:
+    type: str
+    default: "Ascend310"
+    help: "Target SoC version"
+command_template: 'python /home/wyb/AI_tools/dact-pipeline-gemini/test_tools/mock_atc.py --framework={{ framework }} --model={{ model }} --input_format={{ input_format }} --output={{ output }} --log={{ log }} --soc_version={{ soc_version }}'
+success_pattern: "ATC run success"
+timeout: 300
+validation:
+  exit_code: 0
+  stdout_contains: ["ATC run success"]
+  stderr_not_contains: ["FATAL", "ERROR"]
+  output_files_exist: ["{{ output }}/*.om"]

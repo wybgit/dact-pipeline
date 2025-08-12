@@ -1,0 +1,138 @@
+# End-to-End ONNX to ATC Conversion Test Cases
+# 端到端ONNX到ATC转换测试用例
+
+common_params:
+  timeout: 600
+  output_dir: "outputs"
+  atc_output_dir: "outputs/atc_outputs"
+
+cases:
+  - name: test_conv_add_e2e
+    description: "Conv Add算子端到端转换测试"
+    scenario: e2e-onnx-to-atc
+    params:
+      ops: "Conv Add"
+      soc_version: "Ascend310"
+    validation:
+      - type: exit_code
+        expected: 0
+        description: "所有步骤应该成功执行"
+      
+      - type: file_exists
+        target: "outputs/atc_outputs/*.om"
+        description: "ATC输出文件应该存在"
+      
+      - type: file_size
+        target: "outputs/atc_outputs/*.om"
+        min_value: 1000
+        description: "ATC输出文件不应为空"
+    
+    tags: ["e2e", "conv", "add", "basic"]
+
+  - name: test_conv_batchnorm_relu_e2e
+    description: "Conv BatchNorm ReLU算子端到端转换测试"
+    scenario: e2e-onnx-to-atc
+    params:
+      ops: "Conv BatchNorm ReLU"
+      soc_version: "Ascend310P3"
+      max_retries: 5
+    validation:
+      - type: exit_code
+        expected: 0
+        description: "所有步骤应该成功执行"
+      
+      - type: file_exists
+        target: "outputs/**/*.onnx"
+        description: "ONNX文件应该生成"
+      
+      - type: file_exists
+        target: "outputs/atc_outputs/*.om"
+        description: "ATC输出文件应该存在"
+      
+      - type: file_content
+        target: "outputs/atc_outputs/stdout.log"
+        pattern: "ATC run success"
+        description: "ATC转换应该成功"
+    
+    tags: ["e2e", "conv", "batchnorm", "relu", "complex"]
+
+  - name: test_dynamic_filename_support
+    description: "测试动态文件名支持功能"
+    scenario: e2e-onnx-to-atc
+    params:
+      ops: "Conv"
+      output_dir: "outputs/dynamic_test"
+      atc_output_dir: "outputs/dynamic_test/atc_outputs"
+    validation:
+      - type: exit_code
+        expected: 0
+        description: "动态文件名查找应该工作正常"
+      
+      - type: file_exists
+        target: "outputs/dynamic_test/**/*.onnx"
+        description: "ONNX文件应该在动态目录中生成"
+      
+      - type: file_exists
+        target: "outputs/dynamic_test/atc_outputs/*.om"
+        description: "ATC输出文件应该存在"
+    
+    setup:
+      create_dirs: ["outputs/dynamic_test"]
+    
+    teardown:
+      cleanup_dirs: ["outputs/dynamic_test"]
+    
+    tags: ["e2e", "dynamic", "filename"]
+
+  - name: test_error_handling
+    description: "测试错误处理和失败恢复"
+    scenario: e2e-onnx-to-atc
+    params:
+      ops: "InvalidOperator"  # 故意使用无效算子来测试错误处理
+      max_retries: 1
+    validation:
+      - type: exit_code
+        expected: 1  # 期望失败
+        description: "无效算子应该导致失败"
+    
+    tags: ["e2e", "error", "handling"]
+
+# 数据驱动测试用例
+data_driven_cases:
+  - template:
+      name: batch_operator_test
+      description: "批量算子转换测试"
+      scenario: e2e-onnx-to-atc
+      params:
+        ops: "{{ ops }}"
+        soc_version: "{{ soc_version }}"
+        output_dir: "outputs/batch_{{ test_id }}"
+        atc_output_dir: "outputs/batch_{{ test_id }}/atc_outputs"
+      validation:
+        - type: exit_code
+          expected: 0
+          description: "批量测试应该成功"
+        
+        - type: file_exists
+          target: "outputs/batch_{{ test_id }}/atc_outputs/*.om"
+          description: "每个测试都应该生成ATC文件"
+      
+      tags: ["e2e", "batch", "data-driven"]
+    
+    data_source: "inline"  # Use inline data
+    # 内联测试数据
+    data:
+      - test_id: "001"
+        ops: "Conv Add"
+        soc_version: "Ascend310"
+      - test_id: "002"
+        ops: "Conv BatchNorm"
+        soc_version: "Ascend310P3"
+      - test_id: "003"
+        ops: "Conv ReLU"
+        soc_version: "Ascend310"
+      - test_id: "004"
+        ops: "Add Mul"
+        soc_version: "Ascend310P3"
+    
+    name_template: "batch_test_{{ test_id }}_{{ ops | replace(' ', '_') | lower }}"

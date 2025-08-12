@@ -1,0 +1,8 @@
+cases:
+  - name: e2e_onnx_to_atc_test
+    scenario: e2e-onnx-to-atc
+    description: A test case for the e2e_onnx_to_atc scenario.
+    params:
+      ops: "Conv Add"
+      output_dir: "outputs"
+      atc_output_dir: "outputs/atc_outputs"

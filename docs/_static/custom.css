@@ -1,0 +1,107 @@
+/* Custom CSS for DACT Pipeline documentation */
+
+/* Improve code block styling */
+.highlight {
+    background-color: #f8f8f8;
+    border: 1px solid #e1e4e5;
+    border-radius: 4px;
+    margin: 1em 0;
+}
+
+.highlight pre {
+    padding: 12px;
+    margin: 0;
+    overflow-x: auto;
+}
+
+/* Improve table styling */
+table.docutils {
+    border-collapse: collapse;
+    border-spacing: 0;
+    width: 100%;
+    margin: 1em 0;
+}
+
+table.docutils th,
+table.docutils td {
+    border: 1px solid #e1e4e5;
+    padding: 8px 12px;
+    text-align: left;
+}
+
+table.docutils th {
+    background-color: #f1f2f3;
+    font-weight: bold;
+}
+
+/* Improve admonition styling */
+.admonition {
+    margin: 1em 0;
+    padding: 12px;
+    border-left: 4px solid #ccc;
+    background-color: #f9f9f9;
+}
+
+.admonition.note {
+    border-left-color: #6ab0de;
+}
+
+.admonition.warning {
+    border-left-color: #f0b37e;
+}
+
+.admonition.tip {
+    border-left-color: #1abc9c;
+}
+
+/* Improve navigation */
+.wy-nav-content {
+    max-width: 1200px;
+}
+
+/* Chinese font support */
+body {
+    font-family: "Helvetica Neue", Helvetica, "Hiragino Sans GB", "Microsoft YaHei", Arial, sans-serif;
+}
+
+/* Code font for Chinese environment */
+code, pre {
+    font-family: "SFMono-Regular", Consolas, "Liberation Mono", Menlo, Courier, "Microsoft YaHei", monospace;
+}
+
+/* Improve inline code styling */
+code {
+    background-color: #f1f2f3;
+    padding: 2px 4px;
+    border-radius: 3px;
+    font-size: 0.9em;
+}
+
+/* Improve section headers */
+h1, h2, h3, h4, h5, h6 {
+    color: #2c3e50;
+    margin-top: 1.5em;
+    margin-bottom: 0.5em;
+}
+
+/* Improve link styling */
+a {
+    color: #3498db;
+    text-decoration: none;
+}
+
+a:hover {
+    color: #2980b9;
+    text-decoration: underline;
+}
+
+/* Responsive improvements */
+@media screen and (max-width: 768px) {
+    .wy-nav-content {
+        margin-left: 0;
+    }
+    
+    .wy-nav-side {
+        left: -300px;
+    }
+}
