@@ -1,4 +1,3 @@
-import pytest
 import sys
 import typer
 from typing import Optional
@@ -6,6 +5,7 @@ from rich.console import Console
 from rich.table import Table
 from rich.panel import Panel
 from rich.text import Text
+from pathlib import Path
 
 from dact.inspector import DACTInspector
 from dact.__version__ import __version__
@@ -16,7 +16,10 @@ def version_callback(value: bool):
         console.print(f"DACT Pipeline version {__version__}")
         raise typer.Exit()
 
-app = typer.Typer(help="DACT Pipeline - A data-driven test pipeline for AI chip/compiler")
+app = typer.Typer(
+    help="DACT Pipeline - A data-driven test pipeline for AI chip/compiler",
+    context_settings={"help_option_names": ["-h", "--help"]}
+)
 console = Console()
 
 @app.callback()
@@ -34,32 +37,18 @@ def run(
     verbose: bool = typer.Option(False, "-v", "--verbose", help="详细输出"),
     debug: bool = typer.Option(False, "--debug", help="调试模式"),
 ):
-    """运行测试用例"""
-    args = []
-    
-    if test_path:
-        args.append(test_path)
-    
-    # Add any extra arguments passed to the command
-    if ctx.args:
-        args.extend(ctx.args)
-    
-    # Custom --resume flag handling
-    if resume:
-        args.append("--lf")  # --lf is pytest's last-failed flag
-    
-    if verbose:
-        args.append("-v")
-    
-    if debug:
-        args.append("-s")  # Don't capture output in debug mode
-    
-    # Add our plugin to the command line arguments if it's not already there
-    args.extend(["-p", "dact.pytest_plugin"])
-    
-    console.print(f"[bold blue]Running pytest with arguments:[/bold blue] {args}")
-    
-    exit_code = pytest.main(args)
+    """运行测试用例（自定义运行器）"""
+    # 注意：为了保持兼容，这里忽略 resume 与 pytest 参数，后续可在自定义运行器实现断点续跑
+    from dact.runner import run as custom_run
+
+    if test_path is None and ctx.args:
+        # 允许用户把路径直接写在 run 后面
+        for a in ctx.args:
+            if a.endswith('.yml') or a.endswith('.case.yml') or Path(a).exists():
+                test_path = a
+                break
+
+    exit_code = custom_run(test_path, debug=debug, verbose=verbose)
     sys.exit(exit_code)
 
 @app.command()
@@ -198,13 +187,22 @@ def list_cases(case_file: str = typer.Argument(..., help="指定一个 .case.yml
 @app.command()
 def gen_py(yaml_case: str = typer.Argument(..., help="输入 .case.yml 文件"),
            output_py: Optional[str] = typer.Option(None, "--out", "-o", help="输出 pytest .py 文件路径")):
-    """将 YAML 用例转换为 pytest 文件，并进行字段合法性检查。"""
+    """将 YAML 用例转换为独立的 Python 运行脚本，并进行字段合法性检查。"""
     try:
+        console.print(f"[bold blue]🔄 YAML 转独立运行脚本[/bold blue]")
+        console.print(f"  输入文件: [cyan]{yaml_case}[/cyan]")
+        
         from dact.yaml_converter import convert_case_yaml_to_py
         path = convert_case_yaml_to_py(yaml_case, output_py)
-        console.print(f"生成成功: {path}")
+        
+        console.print(f"  输出文件: [cyan]{path}[/cyan]")
+        console.print(f"[bold green]✅ 转换成功[/bold green]")
+        console.print(f"\n💡 [bold]使用方法[/bold]:")
+        console.print(f"   python {path}")
+        console.print(f"   dact run {yaml_case}  # 使用 CLI 直接运行 YAML")
+        
     except Exception as e:
-        console.print(f"[red]转换失败: {e}[/red]")
+        console.print(f"[red]❌ 转换失败: {e}[/red]")
         raise typer.Exit(code=1)
 
 @app.command()
@@ -213,26 +211,147 @@ def validate(case_file: str = typer.Argument(..., help="需要校验的 .case.ym
     import yaml
     from pathlib import Path
     from dact.models import CaseFile
+    from dact.tool_loader import load_tools_from_directory
+    from dact.scenario_loader import load_scenarios_from_directory
+    
     try:
+        console.print(f"[bold blue]🔍 正在校验 YAML 文件[/bold blue]: {case_file}")
+        
         p = Path(case_file)
         if not p.exists():
-            console.print(f"[red]文件不存在: {case_file}[/red]")
+            console.print(f"[red]❌ 文件不存在: {case_file}[/red]")
             raise typer.Exit(code=2)
-        data = yaml.safe_load(p.read_text(encoding='utf-8'))
-        if not isinstance(data, dict) or 'cases' not in data:
-            console.print("[red]YAML 格式不合法：缺少 'cases'[/red]")
+        
+        # Stage 1: YAML 语法校验
+        console.print("  📝 [bold]步骤 1: YAML 语法校验[/bold]")
+        try:
+            with open(p, 'r', encoding='utf-8') as f:
+                data = yaml.safe_load(f)
+        except yaml.YAMLError as e:
+            console.print(f"[red]❌ YAML 语法错误: {e}[/red]")
             raise typer.Exit(code=2)
-        CaseFile(**data)
-        console.print(f"[green]校验通过[/green]: {case_file}")
-    except ValidationError as ve:
-        console.print("[red]YAML 字段校验失败[/red]")
-        for err in ve.errors():
-            loc = '.'.join(map(str, err.get('loc', [])))
-            msg = err.get('msg', '')
-            console.print(f" - {loc}: {msg}")
-        raise typer.Exit(code=2)
+        console.print("     ✅ YAML 语法正确")
+        
+        # Stage 2: 基本结构校验
+        console.print("  🏗️  [bold]步骤 2: 基本结构校验[/bold]")
+        if not isinstance(data, dict):
+            console.print("[red]❌ YAML 文件根节点必须是字典格式[/red]")
+            raise typer.Exit(code=2)
+        
+        if 'cases' not in data:
+            console.print("[red]❌ YAML 格式不合法：缺少必填字段 'cases'[/red]")
+            console.print("   💡 提示：YAML 文件必须包含 'cases' 字段，格式如下：")
+            console.print("   cases:")
+            console.print("     - name: test_case_1")
+            console.print("       tool: my_tool")
+            console.print("       # 或者")
+            console.print("       scenario: my_scenario")
+            raise typer.Exit(code=2)
+        
+        if not isinstance(data['cases'], list):
+            console.print("[red]❌ 'cases' 字段必须是列表格式[/red]")
+            raise typer.Exit(code=2)
+        
+        if len(data['cases']) == 0:
+            console.print("[yellow]⚠️  警告：'cases' 列表为空[/yellow]")
+        
+        console.print("     ✅ 基本结构正确")
+        
+        # Stage 3: 数据模型校验
+        console.print("  📋 [bold]步骤 3: 数据模型校验[/bold]")
+        try:
+            case_file_obj = CaseFile(**data)
+        except ValidationError as ve:
+            console.print("[red]❌ 数据模型校验失败：[/red]")
+            for err in ve.errors():
+                loc = '.'.join(map(str, err.get('loc', [])))
+                msg = err.get('msg', '')
+                input_val = err.get('input', '')
+                console.print(f"     - 位置: [cyan]{loc}[/cyan]")
+                console.print(f"       错误: [red]{msg}[/red]")
+                if input_val:
+                    console.print(f"       输入值: [dim]{input_val}[/dim]")
+                console.print()
+            raise typer.Exit(code=2)
+        console.print("     ✅ 数据模型校验通过")
+        
+        # Stage 4: 引用依赖校验
+        console.print("  🔗 [bold]步骤 4: 引用依赖校验[/bold]")
+        
+        # 尝试加载工具和场景
+        project_root = p.parent.resolve()
+        while project_root.parent != project_root:
+            if (project_root / "tools").exists() or (project_root / "scenarios").exists():
+                break
+            project_root = project_root.parent
+        
+        tools_dir = project_root / "tools"
+        scenarios_dir = project_root / "scenarios"
+        
+        tools = {}
+        scenarios = {}
+        
+        if tools_dir.exists():
+            try:
+                tools = load_tools_from_directory(str(tools_dir))
+                console.print(f"     📦 加载了 {len(tools)} 个工具")
+            except Exception as e:
+                console.print(f"[yellow]⚠️  加载工具时出错: {e}[/yellow]")
+        
+        if scenarios_dir.exists():
+            try:
+                scenarios = load_scenarios_from_directory(str(scenarios_dir))
+                console.print(f"     📦 加载了 {len(scenarios)} 个场景")
+            except Exception as e:
+                console.print(f"[yellow]⚠️  加载场景时出错: {e}[/yellow]")
+        
+        # 检查用例中的工具和场景引用
+        missing_refs = []
+        for i, case in enumerate(case_file_obj.cases):
+            case_name = case.name or f"案例 #{i+1}"
+            
+            if case.tool:
+                if case.tool not in tools:
+                    missing_refs.append(f"案例 '{case_name}' 引用的工具 '{case.tool}' 不存在")
+            
+            if case.scenario:
+                if case.scenario not in scenarios:
+                    missing_refs.append(f"案例 '{case_name}' 引用的场景 '{case.scenario}' 不存在")
+            
+            if not case.tool and not case.scenario:
+                missing_refs.append(f"案例 '{case_name}' 必须指定 'tool' 或 'scenario' 中的一个")
+        
+        if missing_refs:
+            console.print("[red]❌ 引用依赖校验失败：[/red]")
+            for ref in missing_refs:
+                console.print(f"     - {ref}")
+            raise typer.Exit(code=2)
+        
+        console.print("     ✅ 引用依赖校验通过")
+        
+        # Stage 5: 汇总信息
+        console.print("  📊 [bold]步骤 5: 汇总信息[/bold]")
+        console.print(f"     - 用例数量: [cyan]{len(case_file_obj.cases)}[/cyan]")
+        
+        tool_cases = [c for c in case_file_obj.cases if c.tool]
+        scenario_cases = [c for c in case_file_obj.cases if c.scenario]
+        
+        console.print(f"     - 工具用例: [cyan]{len(tool_cases)}[/cyan]")
+        console.print(f"     - 场景用例: [cyan]{len(scenario_cases)}[/cyan]")
+        
+        if case_file_obj.common_params:
+            console.print(f"     - 公共参数: [cyan]{len(case_file_obj.common_params)} 个[/cyan]")
+        
+        if case_file_obj.data_driven_cases:
+            console.print(f"     - 数据驱动用例: [cyan]{len(case_file_obj.data_driven_cases)}[/cyan]")
+        
+        console.print(f"\n[bold green]✅ 校验通过[/bold green]: {case_file}")
+        console.print("   💡 提示：可以使用 'dact gen-py' 命令将此 YAML 文件转换为 pytest 脚本")
+        
+    except typer.Exit:
+        raise
     except Exception as e:
-        console.print(f"[red]校验异常: {e}[/red]")
+        console.print(f"[red]❌ 校验异常: {e}[/red]")
         raise typer.Exit(code=1)
 
 def main():
@@ -244,10 +363,15 @@ def main():
         console.print(f"DACT Pipeline version {__version__}")
         sys.exit(0)
     
+    # Handle help flag early to show main help instead of redirecting to run command
+    if len(sys.argv) > 1 and sys.argv[1] in ['-h', '--help']:
+        app()
+        return
+    
     # If no command is provided, default to 'run' command
-    if len(sys.argv) == 1 or (len(sys.argv) > 1 and not sys.argv[1] in ['run', 'list-tools', 'show-scenario', 'list-cases', '--help', '--install-completion', '--show-completion', '--version']):
+    if len(sys.argv) == 1 or (len(sys.argv) > 1 and not sys.argv[1] in ['run', 'list-tools', 'show-scenario', 'list-cases', 'gen-py', 'validate', '--help', '--install-completion', '--show-completion', '--version']):
         # Check if the first argument looks like a file path or pytest option
-        if len(sys.argv) > 1 and (sys.argv[1].endswith('.yml') or sys.argv[1].startswith('-')):
+        if len(sys.argv) > 1 and (sys.argv[1].endswith('.yml') or sys.argv[1].startswith('-') and sys.argv[1] not in ['-h', '--help']):
             # Insert 'run' command at the beginning
             sys.argv.insert(1, 'run')
     

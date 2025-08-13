@@ -97,17 +97,33 @@ dact list-cases -f examples/cases/conv_add.case.yml
 # 输出包含：用例名称、描述、关联场景/工具、源文件路径
 ```
 
+#### YAML转pytest脚本
+
+```bash
+# 将YAML用例转换为pytest脚本
+dact gen-py examples/cases/conv_add.case.yml
+
+# 指定输出文件名
+dact gen-py examples/cases/conv_add.case.yml --out my_test.py
+
+# 校验YAML用例文件格式
+dact validate examples/cases/conv_add.case.yml
+```
+
 #### 获取帮助
 
 ```bash
 # 查看主命令帮助
 dact --help
+dact -h
 
 # 查看子命令帮助
 dact run --help
 dact list-tools --help
 dact show-scenario --help
 dact list-cases --help
+dact gen-py --help
+dact validate --help
 ```
 
 ### 核心概念
@@ -117,6 +133,20 @@ DACT Pipeline 采用三层分离的架构设计：
 - **工具 (Tools)**: 封装命令行工具、Python脚本或二进制程序，定义在 `*.tool.yml` 文件中
 - **场景 (Scenarios)**: 编排多个工具的执行顺序和依赖关系，定义在 `*.scenario.yml` 文件中  
 - **用例 (Cases)**: 为场景提供具体的输入参数和验证规则，定义在 `*.case.yml` 文件中
+
+### 架构优势
+
+框架底层基于pytest构建，具有以下层次结构：
+
+1. **最底层**: 注册的工具 (Tools) - 封装具体的命令行工具或脚本
+2. **中间层**: pytest测试用例 - 通过框架封装的工具执行测试并校验结果  
+3. **最上层**: YAML用例定义 - 简化的用例描述语言，可转换为pytest脚本
+
+这种设计的优势：
+- **简化编写**: 用户只需编写简单的YAML文件，框架自动生成pytest脚本
+- **格式校验**: 框架会检查YAML内容的合法性和必填项
+- **标准化**: 底层统一使用pytest，保证测试执行的一致性和可靠性
+- **可扩展**: 每一层都可以独立扩展和定制
 
 ### 第一个测试（最简两步示例）
 
@@ -176,9 +206,6 @@ examples/
 # 运行端到端测试
 cd examples
 dact cases/e2e_onnx_to_atc.case.yml
-
-# 运行全面验证测试
-dact cases/comprehensive_e2e_validation.case.yml
 ```
 
 ## 5. 贡献指南

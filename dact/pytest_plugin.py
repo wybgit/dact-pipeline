@@ -263,7 +263,7 @@ class TestCaseItem(pytest.Item):
         if self.data_load_error:
             pytest.fail(f"Data loading failed: {self.data_load_error}", pytrace=False)
         
-        case_work_dir = self.config.rootpath / "tmp" / self.name
+        case_work_dir = self.config.rootpath / "dact_outputs" / self.name
         if case_work_dir.exists():
             shutil.rmtree(case_work_dir)
         case_work_dir.mkdir(parents=True)
@@ -350,8 +350,11 @@ class TestCaseItem(pytest.Item):
                         # Render parameters with current context
                         rendered_params = self._render_parameters(params_to_render, run_context, jinja_env)
 
+                        # Check for debug mode from pytest config
+                        debug_mode = self.config.option.capture == 'no'  # -s flag sets capture to 'no'
+                        
                         executor = Executor(tool=tool, params=rendered_params)
-                        result = executor.execute(work_dir=step_work_dir)
+                        result = executor.execute(work_dir=step_work_dir, debug_mode=debug_mode)
 
                         # Update run context with step outputs
                         run_context["steps"][step.name] = {"outputs": result["outputs"]}
@@ -397,8 +400,11 @@ class TestCaseItem(pytest.Item):
                     raise pytest.fail(f"Tool '{self.case.tool}' not found for case '{self.case.name}'.")
                 
                 params = self.case.params or {}
+                # Check for debug mode from pytest config
+                debug_mode = self.config.option.capture == 'no'  # -s flag sets capture to 'no'
+                
                 executor = Executor(tool=tool, params=params)
-                result = executor.execute(work_dir=case_work_dir)
+                result = executor.execute(work_dir=case_work_dir, debug_mode=debug_mode)
 
                 # Execute case-level validations
                 if self.case.validation:
@@ -526,7 +532,7 @@ def pytest_runtest_makereport(item, call):
     
     if report.when == "call" and hasattr(item, 'case'):
         # Add the path to the temporary log directory to the report
-        log_dir = item.config.rootpath / "tmp" / item.name
+        log_dir = item.config.rootpath / "dact_outputs" / item.name
         
         # Add log directory link
         if log_dir.exists():

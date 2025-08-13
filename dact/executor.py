@@ -251,48 +251,115 @@ class Executor:
             "details": validation_results
         }
 
-    def execute(self, work_dir: Path) -> Dict[str, Any]:
+    def execute(self, work_dir: Path, debug_mode: bool = False) -> Dict[str, Any]:
         """
         Renders the command and executes it in a specific working directory.
         """
+        # Stage 1: 准备执行阶段
+        log.info(f"[bold cyan]🔧 准备执行阶段[/bold cyan]")
+        
         template = self.jinja_env.from_string(self.tool.command_template)
         rendered_command = template.render(**self.params)
 
-        # Log the command execution (stage: command)
-        log.info(f"[bold]Command[/bold]: [cyan]{rendered_command}[/cyan]")
-        log.info(f"[bold]Workdir[/bold]: [cyan]{work_dir}[/cyan]")
+        log.info(f"  [bold]工具[/bold]: [yellow]{self.tool.name}[/yellow]")
+        log.info(f"  [bold]命令[/bold]: [cyan]{rendered_command}[/cyan]")
+        log.info(f"  [bold]工作目录[/bold]: [dim]{work_dir}[/dim]")
+        
+        if debug_mode:
+            log.info(f"  [bold]调试模式[/bold]: [green]开启[/green]")
+            log.info(f"  [bold]参数详情[/bold]: {self.params}")
 
+        # Stage 2: 执行阶段
+        log.info(f"[bold blue]⚡ 执行阶段[/bold blue]")
+        log.info(f"  正在执行命令...")
+        
         # Handle timeout if specified
         timeout = self.tool.timeout
+        if timeout:
+            log.info(f"  超时限制: {timeout}秒")
         
-        result = subprocess.run(
-            rendered_command,
-            shell=True,
-            capture_output=True,
-            text=True,
-            cwd=work_dir,  # Execute the command in the specified working directory
-            timeout=timeout
-        )
+        import time
+        start_time = time.time()
+        
+        try:
+            result = subprocess.run(
+                rendered_command,
+                shell=True,
+                capture_output=True,
+                text=True,
+                cwd=work_dir,  # Execute the command in the specified working directory
+                timeout=timeout
+            )
+            
+            end_time = time.time()
+            execution_time = end_time - start_time
+            
+        except subprocess.TimeoutExpired:
+            log.error(f"  [red]命令执行超时 ({timeout}秒)[/red]")
+            raise
+        except Exception as e:
+            log.error(f"  [red]命令执行失败: {e}[/red]")
+            raise
 
         # Save stdout and stderr to log files
-        with open(work_dir / "stdout.log", "w") as f:
+        with open(work_dir / "stdout.log", "w", encoding='utf-8') as f:
             f.write(result.stdout)
-        with open(work_dir / "stderr.log", "w") as f:
+        with open(work_dir / "stderr.log", "w", encoding='utf-8') as f:
             f.write(result.stderr)
 
-        # Log execution result (stage: result)
-        truncated_stdout = (result.stdout[:300] + '...') if len(result.stdout) > 300 else result.stdout
-        truncated_stderr = (result.stderr[:300] + '...') if len(result.stderr) > 300 else result.stderr
-        log.info(f"[bold]Result[/bold]: returncode={result.returncode}")
-        if truncated_stdout:
-            log.info(f"[bold]Stdout[/bold]:\n{truncated_stdout}")
-        if truncated_stderr:
-            log.info(f"[bold]Stderr[/bold]:\n{truncated_stderr}")
-        log.info(f"[bold]Logs[/bold]: stdout={work_dir / 'stdout.log'} stderr={work_dir / 'stderr.log'}")
+        # Stage 3: 结果输出阶段
+        log.info(f"[bold green]📊 结果输出阶段[/bold green]")
+        
+        status_color = "green" if result.returncode == 0 else "red"
+        status_icon = "✅" if result.returncode == 0 else "❌"
+        
+        log.info(f"  {status_icon} [bold]退出码[/bold]: [{status_color}]{result.returncode}[/{status_color}]")
+        log.info(f"  ⏱️  [bold]执行时间[/bold]: [cyan]{execution_time:.2f}秒[/cyan]")
+        
+        # Output summary (non-debug mode shows truncated output)
+        if debug_mode:
+            # Debug mode: show full output
+            if result.stdout:
+                log.info(f"  [bold]标准输出 (完整)[/bold]:")
+                for line in result.stdout.splitlines():
+                    log.info(f"    {line}")
+            if result.stderr:
+                log.info(f"  [bold]错误输出 (完整)[/bold]:")
+                for line in result.stderr.splitlines():
+                    log.info(f"    {line}")
+        else:
+            # Normal mode: show truncated output
+            truncated_stdout = (result.stdout[:300] + '...') if len(result.stdout) > 300 else result.stdout
+            truncated_stderr = (result.stderr[:300] + '...') if len(result.stderr) > 300 else result.stderr
+            
+            if truncated_stdout:
+                log.info(f"  [bold]标准输出 (简略)[/bold]:")
+                for line in truncated_stdout.splitlines()[:5]:  # Show max 5 lines
+                    log.info(f"    {line}")
+                if len(result.stdout.splitlines()) > 5:
+                    log.info(f"    ... ({len(result.stdout.splitlines()) - 5} 行省略)")
+                    
+            if truncated_stderr:
+                log.info(f"  [bold]错误输出 (简略)[/bold]:")
+                for line in truncated_stderr.splitlines()[:5]:  # Show max 5 lines
+                    log.info(f"    {line}")
+                if len(result.stderr.splitlines()) > 5:
+                    log.info(f"    ... ({len(result.stderr.splitlines()) - 5} 行省略)")
+        
+        log.info(f"  📂 [bold]日志文件[/bold]: {work_dir / 'stdout.log'} & {work_dir / 'stderr.log'}")
 
+        # Stage 4: 后处理阶段
+        log.info(f"[bold magenta]🔄 后处理阶段[/bold magenta]")
         outputs = self._resolve_post_exec(work_dir)
         
-        # Perform validation (stage: validation)
+        if outputs:
+            log.info(f"  [bold]输出变量[/bold]:")
+            for name, value in outputs.items():
+                log.info(f"    {name}: [cyan]{value}[/cyan]")
+        else:
+            log.info(f"  无输出变量")
+        
+        # Stage 5: 校验阶段
         validation_result = self._validate_result({
             "stdout": result.stdout,
             "stderr": result.stderr,
@@ -301,22 +368,31 @@ class Executor:
             "outputs": outputs,
         }, work_dir)
 
-        if validation_result:
-            status = "✓" if validation_result.get("success") else "✗"
-            log.info(f"[bold]Validation[/bold]: {status}")
+        if validation_result and validation_result.get("details"):
+            log.info(f"[bold purple]🔍 校验阶段[/bold purple]")
+            overall_status = "✅" if validation_result.get("success") else "❌"
+            status_color = "green" if validation_result.get("success") else "red"
+            log.info(f"  {overall_status} [bold]总体结果[/bold]: [{status_color}]{'通过' if validation_result.get('success') else '失败'}[/{status_color}]")
+            
             for item in validation_result.get("details", []):
-                rule = item.get("rule")
-                rule_ok = "✓" if item.get("success") else "✗"
-                extra = ''
+                rule = item.get("rule", "unknown")
+                rule_ok = "✅" if item.get("success") else "❌"
+                rule_color = "green" if item.get("success") else "red"
+                
+                extra_info = ''
                 if "pattern" in item:
-                    extra = f" pattern={item['pattern']}"
+                    extra_info = f" (模式: {item['pattern']})"
                 elif "expected" in item and "actual" in item:
-                    extra = f" expected={item['expected']} actual={item['actual']}"
+                    extra_info = f" (期望: {item['expected']}, 实际: {item['actual']})"
                 elif "file" in item:
-                    extra = f" file={item['file']}"
+                    extra_info = f" (文件: {item['file']})"
                 elif "found_files" in item:
-                    extra = f" found={len(item['found_files'])}"
-                log.info(f"  - {rule}: {rule_ok}{extra}")
+                    extra_info = f" (找到文件: {len(item['found_files'])}个)"
+                
+                log.info(f"    {rule_ok} [{rule_color}]{rule}[/{rule_color}]{extra_info}")
+        else:
+            log.info(f"[bold purple]🔍 校验阶段[/bold purple]")
+            log.info(f"  ✅ [bold]无校验规则，跳过校验[/bold]")
 
         return {
             "stdout": result.stdout,
@@ -325,4 +401,5 @@ class Executor:
             "command": rendered_command,
             "outputs": outputs,
             "validation": validation_result,
+            "execution_time": execution_time,
         }
