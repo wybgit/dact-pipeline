@@ -1,0 +1,23 @@
+cases:
+  - name: simple_conv_add_onnx_to_atc
+    description: "最小化示例：先生成ONNX再进行ATC转换"
+    scenario: onnx-to-atc
+    params:
+      generate_onnx:
+        ops: "Conv Add"
+        convert_to_onnx: true
+        max_retries: 3
+        output_dir: "outputs"
+      convert_atc:
+        framework: 5
+        model: "{{ steps.generate_onnx.outputs.onnx_file }}"
+        input_format: "NCHW"
+        output: "outputs/atc_outputs"
+        log: "debug"
+        soc_version: "Ascend310"
+    validation:
+      - type: exit_code
+        expected: 0
+      - type: file_exists
+        target: "outputs/atc_outputs/*.om"
+

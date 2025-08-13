@@ -32,7 +32,12 @@ class CaseYAMLFile(pytest.File):
         scenario_dir = project_root / SCENARIO_DIRECTORY
         
         self.tools = load_tools_from_directory(str(tool_dir))
-        self.scenarios = load_scenarios_from_directory(str(scenario_dir))
+        # Load scenarios from default and examples for backward compatibility
+        scenarios_main = load_scenarios_from_directory(str(scenario_dir))
+        scenarios_examples = load_scenarios_from_directory(str(project_root / "examples" / "scenarios"))
+        merged = scenarios_main.copy()
+        merged.update(scenarios_examples)
+        self.scenarios = merged
 
         with open(self.fspath, 'r') as f:
             raw_data = yaml.safe_load(f)
@@ -263,7 +268,7 @@ class TestCaseItem(pytest.Item):
             shutil.rmtree(case_work_dir)
         case_work_dir.mkdir(parents=True)
 
-        log.info(f"[bold]Running case: [yellow]{self.name}[/yellow][/bold]")
+        log.info(f"[bold]Running case[/bold]: [yellow]{self.name}[/yellow]")
         
         # Log data row information for data-driven tests
         if self.data_row:
@@ -321,7 +326,7 @@ class TestCaseItem(pytest.Item):
                         if not step:
                             pytest.fail(f"Step '{step_name}' not found in scenario definition.")
                         
-                        log.info(f"  -> Running step: [blue]{step.name}[/blue]")
+                        log.info(f"  -> [bold]Step[/bold]: [blue]{step.name}[/blue]")
                         step_work_dir = case_work_dir / step.name
                         step_work_dir.mkdir()
 
@@ -380,13 +385,13 @@ class TestCaseItem(pytest.Item):
                 
                 # Execute case-level validations after scenario completion
                 if self.case.validation:
-                    log.info("  Executing case validations...")
+                    log.info("  [bold]Case validations[/bold]...")
                     self._execute_validations(case_work_dir, {"returncode": 0, "outputs": run_context.get("steps", {})})
                 
                 log.info(f"[bold green]Case '{self.name}' finished successfully.[/bold green]")
 
             elif self.case.tool:
-                log.info(f"  -> Running tool: [blue]{self.case.tool}[/blue]")
+                log.info(f"  -> [bold]Tool[/bold]: [blue]{self.case.tool}[/blue]")
                 tool = self.tools.get(self.case.tool)
                 if not tool:
                     raise pytest.fail(f"Tool '{self.case.tool}' not found for case '{self.case.name}'.")
@@ -397,7 +402,7 @@ class TestCaseItem(pytest.Item):
 
                 # Execute case-level validations
                 if self.case.validation:
-                    log.info("  Executing case validations...")
+                    log.info("  [bold]Case validations[/bold]...")
                     self._execute_validations(case_work_dir, result)
                 elif result["returncode"] != 0:
                     log.error(f"  Tool '{self.case.tool}' failed!")

@@ -9,6 +9,7 @@ from rich.text import Text
 
 from dact.inspector import DACTInspector
 from dact.__version__ import __version__
+from pydantic import ValidationError
 
 def version_callback(value: bool):
     if value:
@@ -62,41 +63,49 @@ def run(
     sys.exit(exit_code)
 
 @app.command()
-def list_tools():
-    """列出所有注册的工具"""
+def list_tools(tool_name: Optional[str] = typer.Argument(None, help="工具名（可选，显示详情）")):
+    """列出已注册工具；提供工具名显示详情。"""
     inspector = DACTInspector()
-    
+
     try:
+        if tool_name:
+            details = inspector.get_tool_details(tool_name)
+            console.print(Panel.fit(
+                f"[bold]名称[/bold]: {details.name}\n"
+                f"[bold]类型[/bold]: {details.type}\n"
+                f"[bold]描述[/bold]: {details.description or '无描述'}\n"
+                f"[bold]命令模板[/bold]: {details.command_template}",
+                title=f"工具详情: {details.name}", border_style="cyan"
+            ))
+
+            if details.parameters:
+                table = Table(title="参数", show_header=True, header_style="bold magenta")
+                table.add_column("名称", style="cyan")
+                table.add_column("类型", style="green")
+                table.add_column("必填", style="yellow")
+                table.add_column("默认值", style="white")
+                table.add_column("说明", style="blue")
+                for name, meta in details.parameters.items():
+                    table.add_row(name, meta.get("type", ""), meta.get("required", ""), meta.get("default", ""), meta.get("help", ""))
+                console.print(table)
+            return
+
         tools = inspector.list_tools()
-        
         if not tools:
             console.print("[yellow]No tools found in the tools directory.[/yellow]")
             return
-        
-        table = Table(title="注册的工具列表", show_header=True, header_style="bold magenta")
-        table.add_column("工具名称", style="cyan", no_wrap=True)
+
+        table = Table(title="已注册工具", show_header=True, header_style="bold magenta")
+        table.add_column("名称", style="cyan", no_wrap=True)
         table.add_column("类型", style="green")
         table.add_column("描述", style="yellow")
-        table.add_column("命令模板", style="white")
-        table.add_column("参数", style="blue")
-        
         for tool in tools:
-            # Format parameters for display
-            params_str = ""
-            if tool.parameters:
-                params_list = [f"{name}: {desc}" for name, desc in tool.parameters.items()]
-                params_str = "\n".join(params_list)
-            
             table.add_row(
                 tool.name,
                 tool.type,
                 tool.description or "无描述",
-                tool.command_template,
-                params_str
             )
-        
         console.print(table)
-        
     except Exception as e:
         console.print(f"[red]错误: {e}[/red]")
 
@@ -143,41 +152,88 @@ def show_scenario(scenario_name: str):
         console.print(f"[red]未知错误: {e}[/red]")
 
 @app.command()
-def list_cases(case_file: Optional[str] = typer.Option(None, "--file", "-f", help="指定用例文件")):
-    """列出测试用例"""
+def list_cases(case_file: str = typer.Argument(..., help="指定一个 .case.yml 或 pytest .py 文件")):
+    """显示指定文件中的用例信息与统计。"""
     inspector = DACTInspector()
-    
     try:
-        cases = inspector.list_cases(case_file)
-        
-        if not cases:
-            if case_file:
-                console.print(f"[yellow]在文件 {case_file} 中未找到测试用例.[/yellow]")
-            else:
-                console.print("[yellow]未找到任何测试用例文件.[/yellow]")
-            return
-        
-        table = Table(title="测试用例列表", show_header=True, header_style="bold magenta")
-        table.add_column("用例名称", style="cyan", no_wrap=True)
-        table.add_column("描述", style="green")
-        table.add_column("场景/工具", style="yellow")
-        table.add_column("源文件", style="blue")
-        
-        for case in cases:
-            execution_target = case.scenario or case.tool or "未指定"
-            table.add_row(
-                case.name,
-                case.description or "无描述",
-                execution_target,
-                case.source_file
-            )
-        
-        console.print(table)
-        
-    except FileNotFoundError as e:
-        console.print(f"[red]文件未找到: {e}[/red]")
+        if not case_file:
+            console.print("[red]必须指定文件[/red]")
+            raise typer.Exit(code=2)
+
+        from pathlib import Path
+        p = Path(case_file)
+        if not p.exists():
+            console.print(f"[red]文件不存在: {case_file}[/red]")
+            raise typer.Exit(code=2)
+
+        if case_file.endswith('.case.yml'):
+            cases = inspector.list_cases(case_file)
+            table = Table(title=f"{case_file} 用例", show_header=True, header_style="bold magenta")
+            table.add_column("名称", style="cyan", no_wrap=True)
+            table.add_column("描述", style="green")
+            table.add_column("目标", style="yellow")
+            for c in cases:
+                table.add_row(c.name, c.description or "无描述", c.scenario or c.tool or "未指定")
+            console.print(table)
+            console.print(f"共 {len(cases)} 条用例")
+        elif case_file.endswith('.py'):
+            # 简单解析 pytest 文件中以 test_ 开头的函数名
+            import re
+            content = p.read_text(encoding='utf-8')
+            names = re.findall(r"^def (test_[\w_]+)\(", content, flags=re.M)
+            table = Table(title=f"{case_file} 用例", show_header=True, header_style="bold magenta")
+            table.add_column("pytest 测试函数", style="cyan")
+            for n in names:
+                table.add_row(n)
+            console.print(table)
+            console.print(f"共 {len(names)} 条用例")
+        else:
+            console.print("[red]仅支持 .case.yml 或 .py 文件[/red]")
+            raise typer.Exit(code=2)
+    except typer.Exit:
+        raise
     except Exception as e:
         console.print(f"[red]错误: {e}[/red]")
+
+@app.command()
+def gen_py(yaml_case: str = typer.Argument(..., help="输入 .case.yml 文件"),
+           output_py: Optional[str] = typer.Option(None, "--out", "-o", help="输出 pytest .py 文件路径")):
+    """将 YAML 用例转换为 pytest 文件，并进行字段合法性检查。"""
+    try:
+        from dact.yaml_converter import convert_case_yaml_to_py
+        path = convert_case_yaml_to_py(yaml_case, output_py)
+        console.print(f"生成成功: {path}")
+    except Exception as e:
+        console.print(f"[red]转换失败: {e}[/red]")
+        raise typer.Exit(code=1)
+
+@app.command()
+def validate(case_file: str = typer.Argument(..., help="需要校验的 .case.yml 文件")):
+    """校验 YAML 用例文件格式与必填项。"""
+    import yaml
+    from pathlib import Path
+    from dact.models import CaseFile
+    try:
+        p = Path(case_file)
+        if not p.exists():
+            console.print(f"[red]文件不存在: {case_file}[/red]")
+            raise typer.Exit(code=2)
+        data = yaml.safe_load(p.read_text(encoding='utf-8'))
+        if not isinstance(data, dict) or 'cases' not in data:
+            console.print("[red]YAML 格式不合法：缺少 'cases'[/red]")
+            raise typer.Exit(code=2)
+        CaseFile(**data)
+        console.print(f"[green]校验通过[/green]: {case_file}")
+    except ValidationError as ve:
+        console.print("[red]YAML 字段校验失败[/red]")
+        for err in ve.errors():
+            loc = '.'.join(map(str, err.get('loc', [])))
+            msg = err.get('msg', '')
+            console.print(f" - {loc}: {msg}")
+        raise typer.Exit(code=2)
+    except Exception as e:
+        console.print(f"[red]校验异常: {e}[/red]")
+        raise typer.Exit(code=1)
 
 def main():
     """

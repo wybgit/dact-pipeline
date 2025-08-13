@@ -118,22 +118,26 @@ DACT Pipeline 采用三层分离的架构设计：
 - **场景 (Scenarios)**: 编排多个工具的执行顺序和依赖关系，定义在 `*.scenario.yml` 文件中  
 - **用例 (Cases)**: 为场景提供具体的输入参数和验证规则，定义在 `*.case.yml` 文件中
 
-### 第一个测试
+### 第一个测试（最简两步示例）
 
-1. **切换到示例目录**：
-   ```bash
-   cd examples
-   ```
+本项目提供了一个最简两步端到端示例，完全对应如下人工指令：
 
-2. **运行示例测试**：
-   ```bash
-   dact cases/conv_add.case.yml
-   ```
+1) 生成ONNX：`ai-json-operator "Conv Add" --convert-to-onnx --max-retries 3 -o outputs`
+2) 模型转换：`atc --framework=5 --model=outputs/Conv_testcase_98bd3f/resources/Conv_testcase_98bd3f.onnx --input_format=NCHW --output=outputs/atc_outputs --log=debug --soc_version=Ascend310`
 
-3. **查看结果**：
-   - 控制台显示彩色的实时日志
-   - `tmp/` 目录包含详细的执行日志和输出文件
-   - 可选择生成HTML测试报告
+等价的测试由 `examples/tools/*.tool.yml`、`examples/scenarios/onnx_to_atc.scenario.yml` 与 `examples/cases/simple_onnx_to_atc.case.yml` 组成。
+
+运行方式：
+
+```bash
+cd examples
+dact cases/simple_onnx_to_atc.case.yml
+```
+
+查看结果：
+- 控制台显示彩色实时日志
+- `outputs/` 下包含生成的 `.onnx` 与 `outputs/atc_outputs/*.om`
+- `tmp/` 下保存详细的步骤输出和日志
 
 ## 4. 文档和示例
 

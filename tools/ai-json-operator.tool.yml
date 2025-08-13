@@ -5,24 +5,26 @@ parameters:
   ops:
     type: str
     required: true
-    help: "Operations to include in the model (e.g., 'Conv Add')"
+    help: "Operations/graph pattern (e.g., 'Conv Add')"
   convert_to_onnx:
     type: bool
-    default: false
-    help: "Whether to convert to ONNX format"
+    default: true
+    help: "Whether to add --convert-to-onnx flag"
   max_retries:
     type: int
     default: 3
-    help: "Maximum number of retries"
+    help: "Maximum retry attempts"
   output_dir:
     type: str
     default: "outputs"
     help: "Output directory for generated files"
-command_template: 'python /home/wyb/AI_tools/dact-pipeline-gemini/test_tools/mock_ai_json_operator.py "{{ ops }}" {% if convert_to_onnx %}--convert-to-onnx{% endif %} --max-retries {{ max_retries }} -o {{ output_dir }}'
-success_pattern: "successfully generated"
+command_template: >
+  ai-json-operator "{{ ops }}"
+  {% if convert_to_onnx %}--convert-to-onnx{% endif %}
+  --max-retries {{ max_retries }}
+  -o {{ output_dir }}
 validation:
   exit_code: 0
-  stdout_contains: ["generated"]
   output_files_exist: ["{{ output_dir }}/**/*.onnx"]
 post_exec:
   outputs:

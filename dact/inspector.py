@@ -19,6 +19,14 @@ class ToolInfo(BaseModel):
     command_template: str
     parameters: Dict[str, str]  # Simplified parameter info for display
 
+class ToolDetails(BaseModel):
+    """Detailed tool information for single tool display."""
+    name: str
+    type: str
+    description: Optional[str]
+    command_template: str
+    parameters: Dict[str, Dict[str, str]]
+
 
 class ScenarioPipeline(BaseModel):
     """Scenario pipeline information model."""
@@ -45,32 +53,45 @@ class DACTInspector:
         self.scenarios_dir = scenarios_dir
     
     def list_tools(self) -> List[ToolInfo]:
-        """List all registered tools and command templates."""
+        """List all registered tools with brief information."""
         tools = load_tools_from_directory(self.tools_dir)
         tool_infos = []
         
         for tool in tools.values():
-            # Simplify parameters for display
-            params_info = {}
-            for param_name, param in tool.parameters.items():
-                param_desc = f"{param.type}"
-                if param.required:
-                    param_desc += " (required)"
-                if param.default is not None:
-                    param_desc += f" = {param.default}"
-                if param.help:
-                    param_desc += f" - {param.help}"
-                params_info[param_name] = param_desc
-            
+            # Only keep brief fields for list view
             tool_infos.append(ToolInfo(
                 name=tool.name,
                 type=tool.type,
                 description=tool.description,
                 command_template=tool.command_template,
-                parameters=params_info
+                parameters={}
             ))
         
         return tool_infos
+
+    def get_tool_details(self, tool_name: str) -> ToolDetails:
+        """Get detailed information of a specific tool."""
+        tools = load_tools_from_directory(self.tools_dir)
+        tool = tools.get(tool_name)
+        if not tool:
+            raise ValueError(f"Tool '{tool_name}' not found")
+
+        params_details: Dict[str, Dict[str, str]] = {}
+        for param_name, param in tool.parameters.items():
+            params_details[param_name] = {
+                "type": str(param.type),
+                "required": "true" if param.required else "false",
+                "default": "" if param.default is None else str(param.default),
+                "help": param.help or ""
+            }
+
+        return ToolDetails(
+            name=tool.name,
+            type=tool.type,
+            description=tool.description,
+            command_template=tool.command_template,
+            parameters=params_details
+        )
     
     def show_scenario_pipeline(self, scenario_name: str) -> ScenarioPipeline:
         """Show the pipeline diagram for a specified scenario."""

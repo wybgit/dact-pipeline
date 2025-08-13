@@ -26,7 +26,7 @@ parameters:
     type: str
     default: "Ascend310"
     help: "Target SoC version"
-command_template: 'python /home/wyb/AI_tools/dact-pipeline-gemini/test_tools/mock_atc.py --framework={{ framework }} --model={{ model }} --input_format={{ input_format }} --output={{ output }} --log={{ log }} --soc_version={{ soc_version }}'
+command_template: 'atc --framework={{ framework }} --model={{ model }} --input_format={{ input_format }} --output={{ output }} --log={{ log }} --soc_version={{ soc_version }}'
 success_pattern: "ATC run success"
 timeout: 300
 validation:

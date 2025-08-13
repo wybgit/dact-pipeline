@@ -5,7 +5,7 @@ steps:
   - name: generate_onnx
     tool: ai-json-operator
     params:
-      output_dir: "onnx_models"
+      output_dir: "outputs"
 
   - name: convert_atc
     tool: atc
@@ -13,5 +13,5 @@ steps:
       framework: 5
       model: "{{ steps.generate_onnx.outputs.onnx_file }}"
       input_format: "NCHW"
-      output: "atc_models/model"
+      output: "outputs/atc_outputs"
       soc_version: "Ascend310" # 场景可以提供一个默认的soc

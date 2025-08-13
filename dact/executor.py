@@ -258,8 +258,9 @@ class Executor:
         template = self.jinja_env.from_string(self.tool.command_template)
         rendered_command = template.render(**self.params)
 
-        # Log the command execution
-        log.info(f"Executing command: [cyan]{rendered_command}[/cyan] in [cyan]{work_dir}[/cyan]")
+        # Log the command execution (stage: command)
+        log.info(f"[bold]Command[/bold]: [cyan]{rendered_command}[/cyan]")
+        log.info(f"[bold]Workdir[/bold]: [cyan]{work_dir}[/cyan]")
 
         # Handle timeout if specified
         timeout = self.tool.timeout
@@ -279,9 +280,19 @@ class Executor:
         with open(work_dir / "stderr.log", "w") as f:
             f.write(result.stderr)
 
+        # Log execution result (stage: result)
+        truncated_stdout = (result.stdout[:300] + '...') if len(result.stdout) > 300 else result.stdout
+        truncated_stderr = (result.stderr[:300] + '...') if len(result.stderr) > 300 else result.stderr
+        log.info(f"[bold]Result[/bold]: returncode={result.returncode}")
+        if truncated_stdout:
+            log.info(f"[bold]Stdout[/bold]:\n{truncated_stdout}")
+        if truncated_stderr:
+            log.info(f"[bold]Stderr[/bold]:\n{truncated_stderr}")
+        log.info(f"[bold]Logs[/bold]: stdout={work_dir / 'stdout.log'} stderr={work_dir / 'stderr.log'}")
+
         outputs = self._resolve_post_exec(work_dir)
         
-        # Perform validation
+        # Perform validation (stage: validation)
         validation_result = self._validate_result({
             "stdout": result.stdout,
             "stderr": result.stderr,
@@ -289,6 +300,23 @@ class Executor:
             "command": rendered_command,
             "outputs": outputs,
         }, work_dir)
+
+        if validation_result:
+            status = "✓" if validation_result.get("success") else "✗"
+            log.info(f"[bold]Validation[/bold]: {status}")
+            for item in validation_result.get("details", []):
+                rule = item.get("rule")
+                rule_ok = "✓" if item.get("success") else "✗"
+                extra = ''
+                if "pattern" in item:
+                    extra = f" pattern={item['pattern']}"
+                elif "expected" in item and "actual" in item:
+                    extra = f" expected={item['expected']} actual={item['actual']}"
+                elif "file" in item:
+                    extra = f" file={item['file']}"
+                elif "found_files" in item:
+                    extra = f" found={len(item['found_files'])}"
+                log.info(f"  - {rule}: {rule_ok}{extra}")
 
         return {
             "stdout": result.stdout,
